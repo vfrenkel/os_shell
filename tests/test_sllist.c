@@ -12,8 +12,6 @@ void test_example(CuTest *tc) {
 void test_is_empty(CuTest *tc) {
   struct SLList list;
   init_list(&list);
-  int sample_data = 42;
-  add_back(&list, &sample_data);
 
   CuAssertTrue(tc, is_empty(&list));
 }

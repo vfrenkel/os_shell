@@ -3,8 +3,11 @@ CFLAGS=-c -Wall
 
 all: shell test
 
-shell: shell.o sllist.o
-	$(CC) shell.o sllist.o -o shell
+shell: shell_main.o shell.o sllist.o
+	$(CC) shell_main.o shell.o sllist.o -o shell
+
+shell_main.o: shell_main.c
+	$(CC) $(CFLAGS) shell_main.c
 
 shell.o: shell.c
 	$(CC) $(CFLAGS) shell.c

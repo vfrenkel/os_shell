@@ -46,7 +46,7 @@ void traverse(struct SLList *list, void (*f)(void*)) {
 }
 
 void *pop_front(struct SLList *list) {
-  if (list->head == NULL) {
+  if (list->head != NULL) {
     struct Node *new_head = list->head->next;
     void *front_data = list->head->data;
     free(list->head);

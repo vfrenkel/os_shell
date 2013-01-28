@@ -39,32 +39,35 @@ int process_input(char *input) {
   // break up commands into the list and collect argument lists for them.
   do {
     int cmd_str_length = strcspn(input_current_start, special_delims);
-    char *tmp_cmd_string = (char *)malloc(cmd_str_length);
+    char *tmp_cmd_string = (char *)malloc(cmd_str_length+1);
 
     if (!tmp_cmd_string) {
       printf("error: could not allocate memory for input processing.");
     }
 
     strncpy(tmp_cmd_string, input_current_start, cmd_str_length);
+    tmp_cmd_string[cmd_str_length] = '\n';
     char *cmd_string = strdup(tmp_cmd_string);
 
     // create a cmd struct and add it to the commands list.
     add_back(&commands, cmd_string);
 
-    char modifier = input_current_start[cmd_str_length-1];
+    char modifier = input_current_start[cmd_str_length];
     input_current_start += cmd_str_length+1;
 
     free(tmp_cmd_string);
 
-  } while (*(input_current_start-1) != '\n');
+  } while (*(input_current_start-1) != '\000');
 
-  if (DEBUG) {
-    traverse(&commands, (void*)printf);
-    traverse(&commands, (void*)free);
-  }
+  /* if (DEBUG) { */
+  /*   traverse(&commands, (void*)printf); */
+  /* } */
 
   // clean up. make sure to free argument lists, then command list.
   //destroy_list(&commands); // TODO: make this a list command
+  while (!is_empty(&commands)) {
+    printf((char*)pop_front(&commands));
+  }
 
   return 0;
 }

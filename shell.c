@@ -26,31 +26,41 @@ struct cmd {
 /*
  * Parses and keeps a list of commands with pointers to their argument
  * lists (which can be empty), then carries out the requested actions.
+ * Returns 0 on success.
  */
 int process_input(char *input) {
   struct SLList commands;
   init_list(&commands);
 
-  char input_copy[strlen(input)+1];
-  strcpy(input_copy, input);
+  char *input_current_start = input;
 
   const char special_delims[] = "<>|";
-  char *token = NULL;
 
-  // break up commands into the list and collect argument lists.
+  // break up commands into the list and collect argument lists for them.
   do {
-    if (token == NULL) {
-      token = strtok(input_copy, special_delims);
-    } else {
-      token = strtok(NULL, special_delims);
+    int cmd_str_length = strcspn(input_current_start, special_delims);
+    char *tmp_cmd_string = (char *)malloc(cmd_str_length);
+
+    if (!tmp_cmd_string) {
+      printf("error: could not allocate memory for input processing.");
     }
 
-    add_back(&commands, token);
+    strncpy(tmp_cmd_string, input_current_start, cmd_str_length);
+    char *cmd_string = strdup(tmp_cmd_string);
 
-  } while (token != NULL);
+    // create a cmd struct and add it to the commands list.
+    add_back(&commands, cmd_string);
+
+    char modifier = input_current_start[cmd_str_length-1];
+    input_current_start += cmd_str_length+1;
+
+    free(tmp_cmd_string);
+
+  } while (*(input_current_start-1) != '\n');
 
   if (DEBUG) {
     traverse(&commands, (void*)printf);
+    traverse(&commands, (void*)free);
   }
 
   // clean up. make sure to free argument lists, then command list.

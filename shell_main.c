@@ -26,11 +26,13 @@ int main() {
 
     // TODO: call func that checks for special command and executes
     // appropriate subroutine.
-    if (strcmp(input, "exit\n") == 0) {
+    if (input[0] == '\n') {
+      printf("no input...");
+    } else if (strcmp(input, "exit\n") == 0) {
       break;
+    } else {
+      process_input(input);
     }
-    
-    process_input(input);
 
     printf("> ");
   }

@@ -12,6 +12,7 @@ static char *DIR = "~/";
  * FUNCTION DECLARATIONS *
  *************************/
 int process_input(char *input);
+void cmd_exit();
 
 
 #endif // __SHELL_H_

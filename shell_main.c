@@ -29,7 +29,10 @@ int main() {
     if (strcmp(input, "exit\n") == 0) {
       cmd_exit();
     } else if (input[0] != '\n') {
-      process_input(input);
+      if (process_input(input)) {
+	input_status = -1;
+	break;
+      }
     }
 
     printf("$ ");
@@ -37,7 +40,7 @@ int main() {
 
   // check if something went wrong and let the user try to input again.
   if (input_status == -1) {
-    printf("error: could not get line");
+    printf("error: could not get or process the input line.");
     goto INPUT_LOOP;
   } else {
     // normal exit condition reached, so let's clean up.

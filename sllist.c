@@ -18,6 +18,8 @@ struct Node *add_front(struct SLList *list, void *data) {
     list->head = new_node;
   }
 
+  list->length++;
+
   return new_node;
 }
 
@@ -33,6 +35,8 @@ struct Node *add_back(struct SLList *list, void *data) {
     list->tail_node->next = new_node;
     list->tail_node = new_node;
   }
+
+  list->length++;
 
   return new_node;
 }
@@ -51,6 +55,7 @@ void *pop_front(struct SLList *list) {
     void *front_data = list->head->data;
     free(list->head);
     list->head = new_head;
+    list->length--;
     return front_data;
   } else {
     return NULL;

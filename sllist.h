@@ -19,6 +19,7 @@ struct Node {
 struct SLList {
   struct Node *head;
   struct Node *tail_node;
+  int length;
 };
 
 /*
@@ -27,6 +28,7 @@ struct SLList {
 static inline void init_list(struct SLList *list) {
   list->head = NULL;
   list->tail_node = NULL;
+  list->length = 0;
 }
 
 /*

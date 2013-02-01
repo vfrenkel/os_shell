@@ -6,12 +6,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "sllist.h"
 #include "shell.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 /********************
  * GLOBAL VARIABLES *
@@ -40,11 +42,11 @@ struct Token *make_token(char *token_string, char mod) {
   char *token_part = strtok(token_string, " ");
   char *name = token_part;
   token->name = name;
-  add_back(args, name);
-  while (token_part != NULL) {
-    token_part = strtok(NULL, " ");
+  do {
+    if (DEBUG) printf("adding argument: %s\n", token_part);
     add_back(args, token_part);
-  }
+    token_part = strtok(NULL, " ");
+  } while (token_part != NULL);
 
   token->args = args;
 
@@ -82,7 +84,7 @@ struct Token *make_token(char *token_string, char mod) {
   return token;
 }
 
-int find_cmd(char *name) {
+char *find_cmd(char *name) {
   char full_path_curr[strlen(CURR_DIR)+1+strlen(name)];
 
   // check current dir for the command.
@@ -92,7 +94,7 @@ int find_cmd(char *name) {
   //if (DEBUG) printf("full_path_curr: %s\n", full_path_curr);
   if (!access(full_path_curr, X_OK)) {
     if (DEBUG) printf("found given command and it is executable.\n");
-    return 1;
+    return strdup(full_path_curr);
   } else { // search the path for the command.
     char full_path_search[strlen(PATH)+1+strlen(name)];
     char *delim = ":";
@@ -105,39 +107,75 @@ int find_cmd(char *name) {
       //if (DEBUG) printf("full_path_search: %s\n", full_path_search);
       if (!access(full_path_search, X_OK)) {
 	if (DEBUG) printf("found given command and it is executable.\n");
-	return 1;
+	return strdup(full_path_search);
       }
       path_chunk = strtok(NULL, delim);
+    }
+  }
+
+  return NULL;
+}
+
+char **populate_args(struct Token *tok) {
+  int num_args = tok->args->length;
+  char **args_out = (char **)malloc((num_args+1)*sizeof(char *));
+  args_out[num_args] = '\0';
+
+  if (DEBUG) printf("number of arguments: %d\n", num_args);
+  //pop all args and populate each char * with pointer to popped element.
+  for (int i = 0; i < num_args; i++) {
+    args_out[i] = pop_front(tok->args);
+  }
+
+  return args_out;
+}
+
+int execute_cmd(char *cmd, char **args) {
+  pid_t pid = fork();
+  int cmd_exit_status;
+  
+  if (pid == 0) {
+    if (execv(cmd, args) < 0) {
+      printf("error: could not execute the command.");
+      // child is useless now, kill it.
+      exit(-1);
+    }
+  } else if (pid < 0) {
+    printf("error: could not fork.");
+    return -1;
+  } else {
+    if (waitpid(pid, &cmd_exit_status, 0) < 0) {
+      printf("error: failed to wait for child.");
     }
   }
 
   return 0;
 }
 
-char **populate_args(struct Token *tok) {
-  char **args_out = (char **)malloc((tok->args->length+1)*sizeof(char *));
-  
-  //pop all args and populate each char * with pointer to popped element.
-  return args_out;
-}
-
 int evaluate(struct SLList *tokens) {
   char *cmd = NULL;
   char **args = NULL;
 
-  printf("tokens length: %d\n", tokens->length);
+  if (DEBUG) printf("tokens length: %d\n", tokens->length);
+
   while (tokens->length != 0) {
     struct Token *tok = pop_front(tokens);
     
-    if (find_cmd(tok->name)) {
+    if ( (cmd = find_cmd(tok->name)) != NULL) {
       if (args) {
 	free(args);
       }
-      cmd = tok->name;
       args = populate_args(tok);
+      execute_cmd(cmd, args);
     }
     
-    
+    if (DEBUG) {
+      char **arg = args;
+      while (*arg != '\0') {
+	printf("argument: %s\n", *arg);
+	arg++;
+      }
+    }
 
     free(tok);
   }

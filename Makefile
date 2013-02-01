@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g -c -Wall
+CFLAGS=-g -c -Wall -std=gnu99
 
 all: shell test
 

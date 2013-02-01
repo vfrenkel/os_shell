@@ -84,6 +84,7 @@ struct Token *make_token(char *token_string, char mod) {
   return token;
 }
 
+//TODO clean up malloced stuff right before returning a result.
 char *find_cmd(char *name) {
   char full_path_curr[strlen(CURR_DIR)+1+strlen(name)];
 

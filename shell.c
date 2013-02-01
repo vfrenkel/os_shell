@@ -13,6 +13,15 @@
 
 #define DEBUG 1
 
+/********************
+ * GLOBAL VARIABLES *
+ ********************/
+static char *PATH = "/bin:/usr/bin";
+static char *CURR_DIR = "/home/vfrenkel/DATA/os/hw1/tests/dir_one";
+
+/************************
+ * FUNCTION DEFINITIONS *
+ ************************/
 struct Token *make_token(char *token_string, char mod) {
   struct Token *token;
   struct SLList *args;
@@ -47,7 +56,7 @@ struct Token *make_token(char *token_string, char mod) {
   } else if (mod == '<') {
     token->mod = INPUT_REDIR;
   } else {
-    //printf("error: bad token: %c", mod);
+    token->mod = NO_MODIFIER;
   }
 
   if (DEBUG) {
@@ -73,24 +82,69 @@ struct Token *make_token(char *token_string, char mod) {
   return token;
 }
 
-int evaluate(struct Token *token) {
-  // prep values for the execv call. static vars, 
-  // so will persist across function invocations.
-  static char *cmd = NULL;
-  static char **args[token->args->length+1];
+int find_cmd(char *name) {
+  char full_path_curr[strlen(CURR_DIR)+1+strlen(name)];
 
-  char full_path[strlen(CURR_DIR)+strlen(token->name)];
-
-  //check current dir and path for the command.
-  strcpy(full_path, CURR_DIR);
-  strcat(full_path, token->name);
-  if (!access(full_path, X_OK)) {
-    printf("found given command and it is executable\n");
-  } else {
-    printf("looked at path: %s\n", full_path);
+  // check current dir for the command.
+  strcpy(full_path_curr, CURR_DIR);
+  strcat(full_path_curr, "/");
+  strcat(full_path_curr, name);
+  //if (DEBUG) printf("full_path_curr: %s\n", full_path_curr);
+  if (!access(full_path_curr, X_OK)) {
+    if (DEBUG) printf("found given command and it is executable.\n");
+    return 1;
+  } else { // search the path for the command.
+    char full_path_search[strlen(PATH)+1+strlen(name)];
+    char *delim = ":";
+    char *path_dup = strdup(PATH);
+    char *path_chunk = strtok(path_dup, delim);
+    while (path_chunk != NULL) {
+      strcpy(full_path_search, path_chunk);
+      strcat(full_path_search, "/");
+      strcat(full_path_search, name);
+      //if (DEBUG) printf("full_path_search: %s\n", full_path_search);
+      if (!access(full_path_search, X_OK)) {
+	if (DEBUG) printf("found given command and it is executable.\n");
+	return 1;
+      }
+      path_chunk = strtok(NULL, delim);
+    }
   }
 
+  return 0;
+}
+
+char **populate_args(struct Token *tok) {
+  char **args_out = (char **)malloc((tok->args->length+1)*sizeof(char *));
   
+  //pop all args and populate each char * with pointer to popped element.
+  return args_out;
+}
+
+int evaluate(struct SLList *tokens) {
+  char *cmd = NULL;
+  char **args = NULL;
+
+  printf("tokens length: %d\n", tokens->length);
+  while (tokens->length != 0) {
+    struct Token *tok = pop_front(tokens);
+    
+    if (find_cmd(tok->name)) {
+      if (args) {
+	free(args);
+      }
+      cmd = tok->name;
+      args = populate_args(tok);
+    }
+    
+    
+
+    free(tok);
+  }
+
+  if (args) {
+    free(args);
+  }
 
   // return 0 if everything went peachy.
   return 0;
@@ -135,14 +189,15 @@ int process_input(char *input) {
   } while (*(input_current_start-2) != '\n');
 
   // carry out the instructions formed by the tokens.
-  traverse(&tokens, (void *)evaluate);
+  //traverse(&tokens, (void *)evaluate);
+  evaluate(&tokens);
 
   // any necessary clean up
   //TODO: use a helper function that actually goes through Token structs
   // and frees their memory as well.
-  while (!is_empty(&tokens)) {
-    pop_front(&tokens);
-  }
+  //while (!is_empty(&tokens)) {
+  //  pop_front(&tokens);
+  //}
 
   return 0;
 }

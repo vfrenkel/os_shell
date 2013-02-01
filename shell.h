@@ -1,13 +1,6 @@
 #ifndef __SHELL_H_
 #define __SHELL_H_
 
-
-/********************
- * GLOBAL VARIABLES *
- ********************/
-static char *PATH = "/bin:/usr/bin";
-static char *CURR_DIR = "/home/vfrenkel/DATA/os/hw1/tests/dir_one/";
-
 /************************
  * DATA STRUCTS & ENUMS *
  ************************/
@@ -48,10 +41,9 @@ int process_input(char *input);
 
 /*
  * Uses the parsed tokens to evaluate the 
- * user input to the shell. Designed for use
- * with the list traverse function, oppa-Turing style!
+ * user input to the shell.
  */
-int evaluate(struct Token *token);
+int evaluate(struct SLList *tokens);
 
 /*
  * The built in exit command action.

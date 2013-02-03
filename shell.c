@@ -19,7 +19,7 @@
  * GLOBAL VARIABLES *
  ********************/
 static char *PATH = "/bin:/usr/bin";
-static char *CURR_DIR = "/home/vfrenkel/DATA/os/hw1/tests/dir_one";
+static char *CURR_DIR = "/home/vfrenkel/DATA/ACADEMIC/os/hw1/tests/dir_one";
 
 /************************
  * FUNCTION DEFINITIONS *
@@ -117,6 +117,19 @@ char *find_cmd(char *name) {
   return NULL;
 }
 
+char *find_file(char *name) {
+  char full_path_curr[strlen(CURR_DIR)+1+strlen(name)];
+
+  strcpy(full_path_curr, CURR_DIR);
+  strcat(full_path_curr, "/");
+  strcat(full_path_curr, name);
+  if (!access(full_path_curr, F_OK)) {
+    return strdup(full_path_curr);
+  }
+
+  return NULL;
+}
+
 char **populate_args(struct Token *tok) {
   int num_args = tok->args->length;
   char **args_out = (char **)malloc((num_args+1)*sizeof(char *));
@@ -153,37 +166,81 @@ int execute_cmd(char *cmd, char **args) {
   return 0;
 }
 
-int evaluate(struct SLList *tokens) {
-  char *cmd = NULL;
-  char **args = NULL;
+int _DEBUG_list_exe_cmds(struct SLList *cmds) {
+  struct Node *current_cmd_node = cmds->head;
+  while (current_cmd_node != NULL) {
+    struct ExecutableCmd *current_cmd = current_cmd_node->data;
+    printf("command: %s\n", current_cmd->full_path);
 
-  if (DEBUG) printf("tokens length: %d\n", tokens->length);
+    printf("args:\n");
+    char **arg = current_cmd->args;
+    while (*arg != '\0') {
+      printf("\t %s\n", *arg);
+      arg++;
+    }
+
+    printf("input_redir_from: %s\n", current_cmd->input_redir_from);
+    printf("output_redir_to: %s\n", current_cmd->output_redir_to);
+    printf("err_output_redir_to: %s\n", current_cmd->err_output_redir_to);
+
+    current_cmd_node = current_cmd_node->next;
+  }
+
+  return 0;
+}
+
+int evaluate(struct SLList *tokens) {
+  struct SLList cmds;
+  init_list(&cmds);
+  
+  IOModifier prev_mod = NO_MODIFIER;
+
+  struct ExecutableCmd *exe = (struct ExecutableCmd *)malloc(sizeof(struct ExecutableCmd));
+  init_executable_cmd(exe);
 
   while (tokens->length != 0) {
     struct Token *tok = pop_front(tokens);
     
-    if ( (cmd = find_cmd(tok->name)) != NULL) {
-      if (args) {
-	free(args);
-      }
-      args = populate_args(tok);
-      execute_cmd(cmd, args);
+    if ( prev_mod == PIPE ) {
+      exe->has_pipe = 1;
+      add_back(&cmds, exe);
+      exe = (struct ExecutableCmd *)malloc(sizeof(struct ExecutableCmd));
+      init_executable_cmd(exe);
+      prev_mod = NO_MODIFIER;
     }
-    
-    if (DEBUG) {
-      char **arg = args;
-      while (*arg != '\0') {
-	printf("argument: %s\n", *arg);
-	arg++;
-      }
+
+    // use previous token's mod, if mod exists,
+    // and this token's info to populate redirection of exe.
+    if (prev_mod == INPUT_REDIR) {
+      exe->input_redir_from = find_file(tok->name);
+    } else if (prev_mod == OUTPUT_REDIR) {
+      exe->output_redir_to = find_file(tok->name);
     }
+
+    if ( prev_mod == NO_MODIFIER ) {
+      if ( (exe->full_path = find_cmd(tok->name)) != NULL ) {
+	exe->args = populate_args(tok);
+	if (tok->mod == NO_MODIFIER) {
+	  add_back(&cmds, exe);
+	}
+      } else {
+	printf("error: not a valid command.");
+	return -1;
+      }
+    } else if (tok->mod == NO_MODIFIER) {
+      add_back(&cmds, exe);
+    }
+
+    prev_mod = tok->mod;
 
     free(tok);
   }
 
-  if (args) {
-    free(args);
-  }
+  // Execute the commands.
+  _DEBUG_list_exe_cmds(&cmds);
+
+  // TODO: destroy the cmds list.
+
 
   // return 0 if everything went peachy.
   return 0;
@@ -231,12 +288,8 @@ int process_input(char *input) {
   //traverse(&tokens, (void *)evaluate);
   evaluate(&tokens);
 
-  // any necessary clean up
-  //TODO: use a helper function that actually goes through Token structs
-  // and frees their memory as well.
-  //while (!is_empty(&tokens)) {
-  //  pop_front(&tokens);
-  //}
+  // TODO: add any necessary clean up.
+  
 
   return 0;
 }

@@ -31,10 +31,17 @@ struct ExecutableCmd {
   char *err_output_redir_to;
   
   int has_pipe;
-  char *pipe_in_fd;
-  char *pipe_out_fd;
+  int pipe_in_fd;
+  int pipe_out_fd;
 };
 
+// TODO: remove if not needed.
+struct IOConnection {
+  int pipefd[2];
+  size_t file_in;
+  size_t file_out;
+  size_t file_err_out;
+};
 
 /*************************
  * FUNCTION DECLARATIONS *
@@ -60,8 +67,8 @@ static inline void init_executable_cmd(struct ExecutableCmd *exe_cmd) {
   exe_cmd->err_output_redir_to = NULL;
 
   exe_cmd->has_pipe = 0;
-  exe_cmd->pipe_in_fd = NULL;
-  exe_cmd->pipe_out_fd = NULL;
+  exe_cmd->pipe_in_fd = 0;
+  exe_cmd->pipe_out_fd = 0;
 }
 
 /*

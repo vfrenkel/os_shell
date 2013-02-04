@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "sllist.h"
 #include "shell.h"
@@ -130,6 +131,15 @@ char *find_file(char *name) {
   return NULL;
 }
 
+char *make_file_path(char *name) {
+  char full_path_curr[strlen(CURR_DIR)+1+strlen(name)];
+
+  strcpy(full_path_curr, CURR_DIR);
+  strcat(full_path_curr, "/");
+  strcat(full_path_curr, name);
+  return strdup(full_path_curr);
+}
+
 char **populate_args(struct Token *tok) {
   int num_args = tok->args->length;
   char **args_out = (char **)malloc((num_args+1)*sizeof(char *));
@@ -144,7 +154,8 @@ char **populate_args(struct Token *tok) {
   return args_out;
 }
 
-int execute_cmd(char *cmd, char **args) {
+// deprecated: consider removal.
+int execute_single_cmd(char *cmd, char **args) {
   pid_t pid = fork();
   int cmd_exit_status;
   
@@ -189,6 +200,133 @@ int _DEBUG_list_exe_cmds(struct SLList *cmds) {
   return 0;
 }
 
+/* int execute_command(struct ExecutableCmd *exe) { */
+/*   pid_t pid = fork(); */
+/*   int cmd_exit_status; */
+
+/*   if (pid == 0) { // child (for cmd) code. */
+/*     if (execv(exe->full_path, exe->args) < 0) { */
+/*       printf("error: could not execute the command.\n"); */
+/*       // child is useless now, have it kill itself. */
+/*       exit(-1); */
+/*     } */
+/*   } else if (pid < 0) { */
+/*     printf("error: could not fork.\n"); */
+/*     return -1; */
+/*   } else { // parent (for shell) code. */
+    
+/*   } */
+
+/*   return 0; */
+/* } */
+
+int execute_cmds(struct SLList *cmds) {
+  int stdout_fd = dup(STDOUT_FILENO);
+  int stdin_fd = dup(STDIN_FILENO);
+  int stderr_fd = dup(STDERR_FILENO);
+
+  struct Node *current_cmd_node = cmds->head;
+  while (current_cmd_node != NULL) {
+    struct ExecutableCmd *current_cmd = current_cmd_node->data;
+    int pfds[2];
+    int in_file = 0;
+    int out_file = 0;
+    int err_out_file = 0;
+    
+    if (pipe(pfds) < 0) {
+      printf("error: could not open pipe");
+      return -1;
+    }
+
+    current_cmd->pipe_in_fd = pfds[0];
+    current_cmd->pipe_out_fd = pfds[1];
+
+    pid_t pid = fork();
+    int cmd_exit_status;
+
+    // child has been prepared, time to execute it.
+    if (pid == 0) {
+      // make aliases with dup2 and kick off the command.
+      if (current_cmd_node == cmds->head) {
+	//close(current_cmd->pipe_in_fd);
+      }
+
+      // perform any necessary IO redirections to/from files.
+      if (current_cmd->input_redir_from) {
+	in_file = open(current_cmd->input_redir_from, O_RDONLY);
+
+	if ( dup2(in_file, STDIN_FILENO) < 0 ) {
+	  printf("error: could not redirect stdin to the output file.\n");
+	  return -1;
+	}
+      }
+
+      if (current_cmd->output_redir_to) {
+	out_file = open(current_cmd->output_redir_to,
+			O_TRUNC | O_WRONLY | O_CREAT,
+			S_IRUSR | S_IWUSR |
+			S_IRGRP | S_IWGRP |
+			S_IROTH | S_IWOTH);
+
+	if ( dup2(out_file, STDOUT_FILENO) < 0 ) {
+	  printf("error: could not redirect stdout to the output file.\n");
+	  return -1;
+	}
+      }
+
+      if (current_cmd->err_output_redir_to) {
+	err_out_file = open(current_cmd->err_output_redir_to,
+			    O_TRUNC | O_WRONLY | O_CREAT,
+			    S_IRUSR | S_IWUSR |
+			    S_IRGRP | S_IWGRP |
+			    S_IROTH | S_IWOTH);
+
+	if ( dup2(err_out_file, STDERR_FILENO) < 0 ) {
+	  printf("error: could not redirect stderr to the output file.\n");
+	}
+      }
+
+      if (execv(current_cmd->full_path, current_cmd->args) < 0) {
+	printf("error: could not execute the command.\n");
+	// child is useless now, have it kill itself.
+	exit(-1);
+      }
+    } else if (pid < 0) {
+      printf("error: could not fork.\n");
+      return -1;
+    }
+
+    // last command reached.
+    if (current_cmd_node == cmds->tail_node) {
+      //wait for the children to finish.
+      if (wait(&cmd_exit_status) < 0) {
+	printf("error: failed to reap all children.\n");
+      }
+
+      if (!in_file) close(in_file);
+      if (!out_file) close(out_file);
+      if (!err_out_file) close(err_out_file);
+      
+      if (dup2(stdin_fd, STDIN_FILENO) < 0) {
+	printf("error: could not redirect stdout back to fd 0.\n");
+      }
+
+      if (dup2(stdout_fd, STDOUT_FILENO) < 0 ) {
+      	printf("error: could not redirect stdout back to fd 1.\n");
+      }
+
+      if (dup2(stderr_fd, STDERR_FILENO) < 0) {
+	printf("error: could not redirect stdout back to fd 2.\n");
+      }
+      
+    }
+
+    current_cmd_node = current_cmd_node->next;
+  }
+
+  return 0;
+}
+
 int evaluate(struct SLList *tokens) {
   struct SLList cmds;
   init_list(&cmds);
@@ -212,9 +350,9 @@ int evaluate(struct SLList *tokens) {
     // use previous token's mod, if mod exists,
     // and this token's info to populate redirection of exe.
     if (prev_mod == INPUT_REDIR) {
-      exe->input_redir_from = find_file(tok->name);
+      exe->input_redir_from = make_file_path(tok->name);
     } else if (prev_mod == OUTPUT_REDIR) {
-      exe->output_redir_to = find_file(tok->name);
+      exe->output_redir_to = make_file_path(tok->name);
     }
 
     if ( prev_mod == NO_MODIFIER ) {
@@ -224,7 +362,7 @@ int evaluate(struct SLList *tokens) {
 	  add_back(&cmds, exe);
 	}
       } else {
-	printf("error: not a valid command.");
+	printf("error: not a valid command.\n");
 	return -1;
       }
     } else if (tok->mod == NO_MODIFIER) {
@@ -237,7 +375,7 @@ int evaluate(struct SLList *tokens) {
   }
 
   // Execute the commands.
-  _DEBUG_list_exe_cmds(&cmds);
+  execute_cmds(&cmds);
 
   // TODO: destroy the cmds list.
 
@@ -263,7 +401,7 @@ int process_input(char *input) {
     char *tmp_token_string = (char *)malloc(token_str_length+1);
 
     if (!tmp_token_string) {
-      printf("error: could not allocate memory in input processing for token.");
+      printf("error: could not allocate memory in input processing for token.\n");
       return -1;
     }
 

@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 /*
  * The meat of the shell is separate from the main function 
@@ -40,7 +41,8 @@ int main() {
 
   // check if something went wrong and let the user try to input again.
   if (input_status == -1) {
-    printf("error: could not get or process the input line.");
+    printf("error getting or processing the input line: %s\n", strerror(errno));
+    exit(-1);
     goto INPUT_LOOP;
   } else {
     // normal exit condition reached, so let's clean up.

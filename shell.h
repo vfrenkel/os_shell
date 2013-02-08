@@ -29,10 +29,6 @@ struct ExecutableCmd {
   char *input_redir_from;
   char *output_redir_to;
   char *err_output_redir_to;
-  
-  int has_pipe;
-  int pipe_in_fd;
-  int pipe_out_fd;
 };
 
 /*************************
@@ -57,10 +53,6 @@ static inline void init_executable_cmd(struct ExecutableCmd *exe_cmd) {
   exe_cmd->input_redir_from = NULL;
   exe_cmd->output_redir_to = NULL;
   exe_cmd->err_output_redir_to = NULL;
-
-  exe_cmd->has_pipe = 0;
-  exe_cmd->pipe_in_fd = 0;
-  exe_cmd->pipe_out_fd = 0;
 }
 
 /*

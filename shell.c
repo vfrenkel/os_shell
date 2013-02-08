@@ -226,13 +226,18 @@ int execute_cmds(struct SLList *cmds) {
   int stdin_fd = dup(STDIN_FILENO);
   int stderr_fd = dup(STDERR_FILENO);
 
-  // TODO: make array that is size (cmds->length-1)*2
-  int pfds[2];
+  int num_pipes = cmds->length-1;
 
-  if (pipe(pfds) < 0) {
-    printf("error: could not open pipe");
-    return -1;
+  int pfds[2*num_pipes];
+
+  for (int i = 0; i < num_pipes; i++) {
+    if (pipe(pfds+2*i) < 0) {
+      printf("error: could not open pipe");
+      return -1;
+    }
   }
+
+  int cmd_count = 0;
 
   struct Node *current_cmd_node = cmds->head;
   while (current_cmd_node != NULL) {
@@ -241,16 +246,12 @@ int execute_cmds(struct SLList *cmds) {
     int out_file = 0;
     int err_out_file = 0;
 
-    current_cmd->pipe_in_fd = pfds[1];
-    current_cmd->pipe_out_fd = pfds[0];
-
     // fork to run the first process.
     pid_t pid = fork();
     int cmd_exit_status;
     
-    // child has been prepared, time to execute it.
+    // prepare child and execute it.
     if (pid == 0) {
-      // make aliases with dup2 and kick off the command.
       if (cmds->length > 1) {
 	if (current_cmd_node == cmds->head) {
 	  
@@ -259,37 +260,39 @@ int execute_cmds(struct SLList *cmds) {
 	    exit(-1);
 	  }
 
-	  close(pfds[0]);
-	  close(pfds[1]);
+	  for (int i = 0; i < 2*num_pipes; i++) {
+	    close(pfds[i]);
+	  }
 
 	} else if (current_cmd_node == cmds->tail_node) {
 
 	  // redirect pipe in to stdin.
-	  if (dup2(pfds[0], STDIN_FILENO) < 0) {
+	  if (dup2(pfds[2*cmd_count-2], STDIN_FILENO) < 0) {
 	    printf("error: could not redirect stdio/pipes.\n");
 	    exit(-1);
 	  }
 
-	  close(pfds[0]);
-	  close(pfds[1]);
+	  for (int i = 0; i < 2*num_pipes; i++) {
+	    close(pfds[i]);
+	  }
 
 	} else {
-	  /* if (dup2(current_cmd->pipe_in_fd, last_pipe_out) < 0) { */
-	  /*   printf("error: could not redirect stdio/pips.\n"); */
-	  /*   exit(-1); */
-	  /* } */
+	  if (dup2(pfds[2*cmd_count+1], STDOUT_FILENO) < 0) {
+	    printf("error: could not redirect stdio/pips.\n");
+	    exit(-1);
+	  }
 
-	  /* if (dup2(current_cmd->pipe_out_fd, STDOUT_FILENO) < 0) { */
-	  /*   printf("error: could not redirect stdio/pips.\n"); */
-	  /*   exit(-1); */
-	  /* } */
+	  if (dup2(pfds[2*cmd_count-2], STDIN_FILENO) < 0) {
+	    printf("error: could not redirect stdio/pips.\n");
+	    exit(-1);
+	  }
 
-	  //last_pipe_out = current_cmd->pipe_out_fd;
+	  for (int i = 0; i < 2*num_pipes; i++) {
+	    close(pfds[i]);
+	  }
 	}
       }
 
-
-      //TODO: maybe it will help if you encapsulate this in a function...
       // perform any necessary IO redirections to/from files.
       if (current_cmd->input_redir_from) {
 	in_file = open(current_cmd->input_redir_from, O_RDONLY);
@@ -339,13 +342,16 @@ int execute_cmds(struct SLList *cmds) {
 
     // last command reached.
     if (current_cmd_node == cmds->tail_node) {
-      close(pfds[0]);
-      close(pfds[1]);
+      for (int i = 0; i < 2*num_pipes; i++) {
+	close(pfds[i]);
+      }
 
       // TODO: change this to loop through number of children and call that many waits.
-      //wait for last pid in the chain to finish.
-      if (waitpid(pid, &cmd_exit_status, 0) < 0) {
-	printf("error: failed to reap all children.\n");
+      for (int i = 0; i < cmds->length; i++) {
+	//if (waitpid(pid, &cmd_exit_status, 0) < 0) {
+	if ( wait(&cmd_exit_status) < 0) {
+	  printf("error: failed to reap all children.\n");
+	}
       }
 
       if (!in_file) close(in_file);
@@ -367,6 +373,7 @@ int execute_cmds(struct SLList *cmds) {
       
     }
 
+    cmd_count++;
     current_cmd_node = current_cmd_node->next;
   }
 
@@ -386,7 +393,6 @@ int evaluate(struct SLList *tokens) {
     struct Token *tok = pop_front(tokens);
     
     if ( prev_mod == PIPE ) {
-      exe->has_pipe = 1;
       add_back(&cmds, exe);
       exe = (struct ExecutableCmd *)malloc(sizeof(struct ExecutableCmd));
       init_executable_cmd(exe);

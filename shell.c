@@ -20,7 +20,8 @@
  * GLOBAL VARIABLES *
  ********************/
 static char *PATH = "/bin:/usr/bin";
-static char *CURR_DIR = "/home/vfrenkel/DATA/ACADEMIC/os/hw1/tests/dir_one";
+//static char *CURR_DIR = "/home/vfrenkel/DATA/ACADEMIC/os/hw1/tests/dir_one";
+static char *CURR_DIR = "/home/vfrenkel/ACADEMIC/os/hw1/tests/dir_one";
 
 /************************
  * FUNCTION DEFINITIONS *
@@ -225,6 +226,8 @@ int execute_cmds(struct SLList *cmds) {
   int stdin_fd = dup(STDIN_FILENO);
   int stderr_fd = dup(STDERR_FILENO);
 
+  int last_pipe_out = 0;
+
   struct Node *current_cmd_node = cmds->head;
   while (current_cmd_node != NULL) {
     struct ExecutableCmd *current_cmd = current_cmd_node->data;
@@ -248,7 +251,36 @@ int execute_cmds(struct SLList *cmds) {
     if (pid == 0) {
       // make aliases with dup2 and kick off the command.
       if (current_cmd_node == cmds->head) {
-	//close(current_cmd->pipe_in_fd);
+	close(current_cmd->pipe_in_fd);
+
+	if (dup2(current_cmd->pipe_out_fd, STDOUT_FILENO) < 0) {
+	  printf("error: could not redirect stdio/pipes");
+	  exit(-1);
+	}
+
+	last_pipe_out = current_cmd->pipe_out_fd;
+
+      } else if (current_cmd_node == cmds->tail_node) {
+	close(current_cmd->pipe_out_fd);
+
+	// redirect pipe in to stdin.
+	if (dup2(last_pipe_out, STDIN_FILENO) < 0) {
+	  printf("error: could not redirect stdio/pipes.\n");
+	  exit(-1);
+	}
+
+      } else {
+	if (dup2(current_cmd->pipe_in_fd, last_pipe_out) < 0) {
+	  printf("error: could not redirect stdio/pips.\n");
+	  exit(-1);
+	}
+
+	if (dup2(current_cmd->pipe_out_fd, STDOUT_FILENO) < 0) {
+	  printf("error: could not redirect stdio/pips.\n");
+	  exit(-1);
+	}
+
+	last_pipe_out = current_cmd->pipe_out_fd;
       }
 
       // perform any necessary IO redirections to/from files.
@@ -257,7 +289,7 @@ int execute_cmds(struct SLList *cmds) {
 
 	if ( dup2(in_file, STDIN_FILENO) < 0 ) {
 	  printf("error: could not redirect stdin to the output file.\n");
-	  return -1;
+	  exit(-1);
 	}
       }
 
@@ -270,7 +302,7 @@ int execute_cmds(struct SLList *cmds) {
 
 	if ( dup2(out_file, STDOUT_FILENO) < 0 ) {
 	  printf("error: could not redirect stdout to the output file.\n");
-	  return -1;
+	  exit(-1);
 	}
       }
 
@@ -283,9 +315,11 @@ int execute_cmds(struct SLList *cmds) {
 
 	if ( dup2(err_out_file, STDERR_FILENO) < 0 ) {
 	  printf("error: could not redirect stderr to the output file.\n");
+	  exit(-1);
 	}
       }
 
+      // execute the command.
       if (execv(current_cmd->full_path, current_cmd->args) < 0) {
 	printf("error: could not execute the command.\n");
 	// child is useless now, have it kill itself.
@@ -298,8 +332,9 @@ int execute_cmds(struct SLList *cmds) {
 
     // last command reached.
     if (current_cmd_node == cmds->tail_node) {
-      //wait for the children to finish.
-      if (wait(&cmd_exit_status) < 0) {
+      //TODO: figure out how to wait for all children...
+      //wait for last pid in the chain to finish.
+      if (waitpid(pid, &cmd_exit_status, 0) < 0) {
 	printf("error: failed to reap all children.\n");
       }
 
@@ -307,6 +342,7 @@ int execute_cmds(struct SLList *cmds) {
       if (!out_file) close(out_file);
       if (!err_out_file) close(err_out_file);
       
+      // put the std fds back.
       if (dup2(stdin_fd, STDIN_FILENO) < 0) {
 	printf("error: could not redirect stdout back to fd 0.\n");
       }

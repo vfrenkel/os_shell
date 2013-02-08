@@ -35,14 +35,6 @@ struct ExecutableCmd {
   int pipe_out_fd;
 };
 
-// TODO: remove if not needed.
-struct IOConnection {
-  int pipefd[2];
-  size_t file_in;
-  size_t file_out;
-  size_t file_err_out;
-};
-
 /*************************
  * FUNCTION DECLARATIONS *
  *************************/

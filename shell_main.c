@@ -35,7 +35,7 @@ int main() {
 	break;
       }
     }
-
+    
     printf("$ ");
   }
 

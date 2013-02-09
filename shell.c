@@ -40,16 +40,23 @@ struct Token *make_token(char *token_string, char mod) {
   init_token(token);
   init_list(args);
   
-  //extract the necessary data from the command string.
-  char *token_part = strtok(token_string, " ");
-  char *name = token_part;
-  token->name = name;
+  //extract the necessary data from the command token string.
+  char *working_token_string = strdup(token_string);
+  char *token_part = strtok(working_token_string, " ");
+  char *token_part_dyn = malloc(strlen(token_part)+1);
+  strcpy(token_part_dyn, token_part);
+  token->name = token_part_dyn;
   do {
     if (DEBUG) printf("adding argument: %s\n", token_part);
-    add_back(args, token_part);
+    add_back(args, token_part_dyn);
     token_part = strtok(NULL, " ");
-  } while (token_part != NULL);
+    if (token_part) {
+      token_part_dyn = malloc(strlen(token_part)+1);
+      strcpy(token_part_dyn, token_part);
+    }
+  } while (token_part);
 
+  free(working_token_string);
   token->args = args;
 
   //assign correct modifier indicator based on mod character.
@@ -89,12 +96,38 @@ struct Token *make_token(char *token_string, char mod) {
   return token;
 }
 
-int destroy_token(struct Token* tok) {
+int destroy_token(struct Token *tok) {
+  // no free(tok->name) because it is already first arg.
+  // probably won't need to loop because populate_args pops
+  // elements from list, but included here for completeness.
+  char *arg;
+  while ( (arg = pop_front(tok->args)) ) {
+    printf("token arg being freed: %s\n", arg);
+    free(arg);
+  }
   free(tok->args);
+  free(tok);
   return 0;
 }
 
-//TODO clean up malloced stuff right before returning a result.
+int destroy_exe_cmd(struct ExecutableCmd *exe) {
+  free(exe->full_path);
+
+  char **arg = exe->args;
+  while (*arg) {
+    printf("exe arg being freed: %s\n", *arg);
+    free( *arg );
+    arg++;
+  }
+
+  free(exe->args);
+  if (exe->input_redir_from) free(exe->input_redir_from);
+  if (exe->output_redir_to) free(exe->output_redir_to);
+  if (exe->err_output_redir_to) free(exe->err_output_redir_to);
+  free(exe);
+  return 0;
+}
+
 char *find_cmd(char *name) {
   char full_path_curr[strlen(CURR_DIR)+1+strlen(name)];
 
@@ -118,10 +151,12 @@ char *find_cmd(char *name) {
       //if (DEBUG) printf("full_path_search: %s\n", full_path_search);
       if (!access(full_path_search, X_OK)) {
 	if (DEBUG) printf("found given command and it is executable.\n");
+	free(path_dup);
 	return strdup(full_path_search);
       }
       path_chunk = strtok(NULL, delim);
     }
+    free(path_dup);
   }
 
   return NULL;
@@ -157,33 +192,14 @@ char **populate_args(struct Token *tok) {
   if (DEBUG) printf("number of arguments: %d\n", num_args);
   //pop all args and populate each char * with pointer to popped element.
   for (int i = 0; i < num_args; i++) {
-    args_out[i] = pop_front(tok->args);
+    char *arg = pop_front(tok->args);
+    char *arg_dyn = malloc(strlen(arg)+1);
+    strcpy(arg_dyn, arg);
+    free(arg);
+    args_out[i] = arg_dyn;
   }
 
   return args_out;
-}
-
-// deprecated: consider removal.
-int execute_single_cmd(char *cmd, char **args) {
-  pid_t pid = fork();
-  int cmd_exit_status;
-  
-  if (pid == 0) {
-    if (execv(cmd, args) < 0) {
-      printf("error: could not execute the command.");
-      // child is useless now, kill it.
-      exit(-1);
-    }
-  } else if (pid < 0) {
-    printf("error: could not fork.");
-    return -1;
-  } else {
-    if (waitpid(pid, &cmd_exit_status, 0) < 0) {
-      printf("error: failed to wait for child.");
-    }
-  }
-
-  return 0;
 }
 
 int _DEBUG_list_exe_cmds(struct SLList *cmds) {
@@ -287,12 +303,12 @@ int execute_cmds(struct SLList *cmds) {
 
 	} else {
 	  if (dup2(pfds[2*cmd_count+1], STDOUT_FILENO) < 0) {
-	    printf("error: could not redirect stdio/pips.\n");
+	    printf("error: could not redirect stdio/pipes.\n");
 	    exit(-1);
 	  }
 
 	  if (dup2(pfds[2*cmd_count-2], STDIN_FILENO) < 0) {
-	    printf("error: could not redirect stdio/pips.\n");
+	    printf("error: could not redirect stdio/pipes.\n");
 	    exit(-1);
 	  }
 
@@ -362,9 +378,9 @@ int execute_cmds(struct SLList *cmds) {
 	}
       }
 
-      if (!in_file) close(in_file);
-      if (!out_file) close(out_file);
-      if (!err_out_file) close(err_out_file);
+      if (in_file) close(in_file);
+      if (out_file) close(out_file);
+      if (err_out_file) close(err_out_file);
       
       // put the std fds back.
       if (dup2(stdin_fd, STDIN_FILENO) < 0) {
@@ -391,8 +407,7 @@ int execute_cmds(struct SLList *cmds) {
 int destroy_cmd_list(struct SLList *cmds) {
   struct ExecutableCmd *curr;
   while ( (curr = pop_front(cmds)) ) {
-    free(curr->full_path);
-    free(curr->args);
+    destroy_exe_cmd(curr);
   }
   return 0;
 }
@@ -442,7 +457,7 @@ int evaluate(struct SLList *tokens) {
 
     prev_mod = tok->mod;
 
-    free(tok);
+    destroy_token(tok);
   }
 
   // Execute the commands.
@@ -485,13 +500,13 @@ int process_input(char *input) {
     }
 
     char modifier = input_current_start[token_str_length];
-    if (input_current_start[token_str_length-1] == '2') {
+    if (input_current_start[token_str_length-1] == '2'
+	&& input_current_start[token_str_length] == '>') {
       modifier = 'e';
       tmp_token_string[token_str_length-1] = '\0';
     }
 
-    char *token_string = strdup(tmp_token_string);
-    add_back(&tokens, make_token(token_string, modifier));
+    add_back(&tokens, make_token(tmp_token_string, modifier));
 
     input_current_start += token_str_length+1;
 
@@ -503,7 +518,6 @@ int process_input(char *input) {
   evaluate(&tokens);
 
   // TODO: add any necessary clean up.
-  
 
   return 0;
 }

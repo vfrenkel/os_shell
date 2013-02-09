@@ -20,8 +20,8 @@
  * GLOBAL VARIABLES *
  ********************/
 static char *PATH = "/bin:/usr/bin";
-//static char *CURR_DIR = "/home/vfrenkel/DATA/ACADEMIC/os/hw1/tests/dir_one";
-static char *CURR_DIR = "/home/vfrenkel/ACADEMIC/os/hw1/tests/dir_one";
+static char *CURR_DIR = "/home/vfrenkel/DATA/ACADEMIC/os/hw1/tests/dir_one";
+//static char *CURR_DIR = "/home/vfrenkel/ACADEMIC/os/hw1/tests/dir_one";
 
 /************************
  * FUNCTION DEFINITIONS *
@@ -57,6 +57,8 @@ struct Token *make_token(char *token_string, char mod) {
     token->mod = PIPE;
   } else if (mod == '>') {
     token->mod = OUTPUT_REDIR;
+  } else if (mod == 'e') {
+    token->mod = ERR_OUTPUT_REDIR;
   } else if (mod == '<') {
     token->mod = INPUT_REDIR;
   } else {
@@ -74,6 +76,8 @@ struct Token *make_token(char *token_string, char mod) {
       printf("|");
     } else if (token->mod == OUTPUT_REDIR) {
       printf(">");
+    } else if (token->mod == ERR_OUTPUT_REDIR) {
+      printf("2>");
     } else if (token->mod == INPUT_REDIR) {
       printf("<");
     } else {
@@ -81,9 +85,13 @@ struct Token *make_token(char *token_string, char mod) {
     }
     printf("\n");
   }
-  
 
   return token;
+}
+
+int destroy_token(struct Token* tok) {
+  free(tok->args);
+  return 0;
 }
 
 //TODO clean up malloced stuff right before returning a result.
@@ -144,7 +152,7 @@ char *make_file_path(char *name) {
 char **populate_args(struct Token *tok) {
   int num_args = tok->args->length;
   char **args_out = (char **)malloc((num_args+1)*sizeof(char *));
-  args_out[num_args] = '\0';
+  args_out[num_args] = NULL;
 
   if (DEBUG) printf("number of arguments: %d\n", num_args);
   //pop all args and populate each char * with pointer to popped element.
@@ -186,7 +194,7 @@ int _DEBUG_list_exe_cmds(struct SLList *cmds) {
 
     printf("args:\n");
     char **arg = current_cmd->args;
-    while (*arg != '\0') {
+    while (*arg != NULL) {
       printf("\t %s\n", *arg);
       arg++;
     }
@@ -252,6 +260,7 @@ int execute_cmds(struct SLList *cmds) {
     
     // prepare child and execute it.
     if (pid == 0) {
+
       if (cmds->length > 1) {
 	if (current_cmd_node == cmds->head) {
 	  
@@ -346,7 +355,6 @@ int execute_cmds(struct SLList *cmds) {
 	close(pfds[i]);
       }
 
-      // TODO: change this to loop through number of children and call that many waits.
       for (int i = 0; i < cmds->length; i++) {
 	//if (waitpid(pid, &cmd_exit_status, 0) < 0) {
 	if ( wait(&cmd_exit_status) < 0) {
@@ -380,6 +388,15 @@ int execute_cmds(struct SLList *cmds) {
   return 0;
 }
 
+int destroy_cmd_list(struct SLList *cmds) {
+  struct ExecutableCmd *curr;
+  while ( (curr = pop_front(cmds)) ) {
+    free(curr->full_path);
+    free(curr->args);
+  }
+  return 0;
+}
+
 int evaluate(struct SLList *tokens) {
   struct SLList cmds;
   init_list(&cmds);
@@ -405,6 +422,8 @@ int evaluate(struct SLList *tokens) {
       exe->input_redir_from = make_file_path(tok->name);
     } else if (prev_mod == OUTPUT_REDIR) {
       exe->output_redir_to = make_file_path(tok->name);
+    } else if (prev_mod == ERR_OUTPUT_REDIR) {
+      exe->err_output_redir_to = make_file_path(tok->name);
     }
 
     if ( prev_mod == NO_MODIFIER ) {
@@ -430,7 +449,7 @@ int evaluate(struct SLList *tokens) {
   execute_cmds(&cmds);
 
   // TODO: destroy the cmds list.
-
+  destroy_cmd_list(&cmds);
 
   // return 0 if everything went peachy.
   return 0;
@@ -465,8 +484,13 @@ int process_input(char *input) {
       tmp_token_string[token_str_length] = '\0';
     }
 
-    char *token_string = strdup(tmp_token_string);
     char modifier = input_current_start[token_str_length];
+    if (input_current_start[token_str_length-1] == '2') {
+      modifier = 'e';
+      tmp_token_string[token_str_length-1] = '\0';
+    }
+
+    char *token_string = strdup(tmp_token_string);
     add_back(&tokens, make_token(token_string, modifier));
 
     input_current_start += token_str_length+1;

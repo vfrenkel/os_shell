@@ -95,10 +95,12 @@ int destroy_token(struct Token *tok) {
 int destroy_exe_cmd(struct ExecutableCmd *exe) {
   free(exe->full_path);
 
-  char **arg = exe->args;
-  while (*arg) {
-    free( *arg );
-    arg++;
+  if (exe->args) {
+    char **arg = exe->args;
+    while (*arg) {
+      free( *arg );
+      arg++;
+    }
   }
 
   free(exe->args);
@@ -385,7 +387,17 @@ int evaluate(struct SLList *tokens) {
   while (tokens->length != 0) {
     struct Token *tok = pop_front(tokens);
     
+    // check for output redirection conflicts here.
     if ( prev_mod == PIPE ) {
+      if (exe->output_redir_to) { // conflict
+	// dump the token and cmd lists.
+	destroy_token(tok);
+	while ( (tok = pop_front(tokens)) ) destroy_token(tok);
+	destroy_exe_cmd(exe);
+	destroy_cmd_list(&cmds);
+	fprintf(stderr, "error: syntax error in output redirection.\n");
+	return -1;
+      }
       add_back(&cmds, exe);
       exe = (struct ExecutableCmd *)malloc(sizeof(struct ExecutableCmd));
       init_executable_cmd(exe);
@@ -409,7 +421,10 @@ int evaluate(struct SLList *tokens) {
 	  add_back(&cmds, exe);
 	}
       } else {
-	printf("error: not a valid command.\n");
+	fprintf(stderr, "error: not a valid command.\n");
+	destroy_token(tok);
+	destroy_exe_cmd(exe);
+	destroy_cmd_list(&cmds);
 	return -1;
       }
     } else if (tok->mod == NO_MODIFIER) {
@@ -422,13 +437,13 @@ int evaluate(struct SLList *tokens) {
   }
 
   // Execute the commands.
-  execute_cmds(&cmds);
+  int exe_status = execute_cmds(&cmds);
 
   // TODO: destroy the cmds list.
   destroy_cmd_list(&cmds);
 
   // return 0 if everything went peachy.
-  return 0;
+  return exe_status;
 }
 
 /*

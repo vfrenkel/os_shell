@@ -42,6 +42,11 @@ struct Token *make_token(char *token_string, char mod) {
   
   //extract the necessary data from the command token string.
   char *working_token_string = strdup(token_string);
+  if (!working_token_string) {
+    fprintf(stderr,
+	    "error: could not allocate memory for token string, %s\n",
+	    strerror(errno));
+  }
   char *token_part = strtok(working_token_string, " ");
   char *token_part_dyn = malloc(strlen(token_part)+1);
   strcpy(token_part_dyn, token_part);
@@ -111,7 +116,13 @@ char *find_cmd(char *name) {
   strcpy(full_path_curr, "./");
   strcat(full_path_curr, name);
   if (!access(full_path_curr, X_OK)) {
-    return strdup(full_path_curr);
+    char *ret_path = strdup(full_path_curr);
+    if (!ret_path) {
+      fprintf(stderr,
+	      "error: could not allocate memory for path in find_cmd, %s\n",
+	      strerror(errno));
+    }
+    return ret_path;
   } else { // search the path for the command.
     struct Node *curr_path_node = PATH.head;
     while (curr_path_node) {
@@ -123,23 +134,18 @@ char *find_cmd(char *name) {
       strcat(full_path_search, name);
       
       if (!access(full_path_search, X_OK)) {
-	return strdup(full_path_search);
+	char *ret_path = strdup(full_path_search);
+	if (!ret_path) {
+	  fprintf(stderr,
+		  "error: could not allocate memory for search path in find_cmd, %s\n",
+		  strerror(errno));
+	  return NULL;
+	}
+	return ret_path;
       }
 
       curr_path_node = curr_path_node->next;
     }
-  }
-
-  return NULL;
-}
-
-char *find_file(char *name) {
-  char full_path_curr[2+strlen(name)];
-
-  strcpy(full_path_curr, "./");
-  strcat(full_path_curr, name);
-  if (!access(full_path_curr, F_OK)) {
-    return strdup(full_path_curr);
   }
 
   return NULL;
@@ -150,7 +156,14 @@ char *make_file_path(char *name) {
 
   strcpy(full_path_curr, "./");
   strcat(full_path_curr, name);
-  return strdup(full_path_curr);
+  char *ret_path = strdup(full_path_curr);
+  if (!ret_path) {
+    fprintf(stderr,
+	    "error: could not allocate memory for search path in make_file_path, %s\n",
+	    strerror(errno));
+    return NULL;
+  }
+  return ret_path;
 }
 
 char **populate_args(struct Token *tok) {
@@ -518,7 +531,13 @@ void cmd_path(char modifier, char *path) {
   }
 
   if (modifier == '+') {
-    add_back(&PATH, strdup(path));
+    char *new_path = strdup(path);
+    if (!new_path) {
+      fprintf(stderr,
+	      "error: could not allocate memory to add path, %s\n",
+	      strerror(errno));
+    }
+    add_back(&PATH, new_path);
   } else if (modifier == '-') {
     //remove all matches with path from list.
     remove_all_str(&PATH, path);

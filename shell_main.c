@@ -56,8 +56,7 @@ int main() {
 
   // check if something went wrong and let the user try to input again.
   if (input_status == -1) {
-    fprintf(stderr, "error getting or processing the input line: %s\n", strerror(errno));
-    exit(-1);
+    fprintf(stderr, "error: could not get or process the input line, %s\n", strerror(errno));
     goto INPUT_LOOP;
   } else {
     // normal exit condition reached, so let's put our toys away.

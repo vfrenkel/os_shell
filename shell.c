@@ -31,10 +31,10 @@ struct Token *make_token(char *token_string, char mod) {
   struct SLList *args;
 
   if (!(token = (struct Token *)malloc(sizeof(struct Token)))) {
-    printf("error: could not allocate memory for command");
+    fprintf(stderr, "error: %s\n", strerror(errno));
   }
   if (!(args = (struct SLList *)malloc(sizeof(struct SLList)))) {
-    printf("error: could not allocate memory for command");
+    fprintf(stderr, "error: %s\n", strerror(errno));
   }
 
   init_token(token);
@@ -47,7 +47,6 @@ struct Token *make_token(char *token_string, char mod) {
   strcpy(token_part_dyn, token_part);
   token->name = token_part_dyn;
   do {
-    if (DEBUG) printf("adding argument: %s\n", token_part);
     add_back(args, token_part_dyn);
     token_part = strtok(NULL, " ");
     if (token_part) {
@@ -70,27 +69,6 @@ struct Token *make_token(char *token_string, char mod) {
     token->mod = INPUT_REDIR;
   } else {
     token->mod = NO_MODIFIER;
-  }
-
-  if (DEBUG) {
-    // verify that token has correct info.
-    printf("token name: %s\n", token->name);
-    printf("arguments: ");
-    traverse(token->args, (void*)printf);
-    printf("\n");
-    printf("IO modifier: ");
-    if (token->mod == PIPE) {
-      printf("|");
-    } else if (token->mod == OUTPUT_REDIR) {
-      printf(">");
-    } else if (token->mod == ERR_OUTPUT_REDIR) {
-      printf("2>");
-    } else if (token->mod == INPUT_REDIR) {
-      printf("<");
-    } else {
-      printf("no modifier");
-    }
-    printf("\n");
   }
 
   return token;
@@ -132,9 +110,7 @@ char *find_cmd(char *name) {
   // check current dir for the command.
   strcpy(full_path_curr, "./");
   strcat(full_path_curr, name);
-  //if (DEBUG) printf("full_path_curr: %s\n", full_path_curr);
   if (!access(full_path_curr, X_OK)) {
-    if (DEBUG) printf("found given command and it is executable.\n");
     return strdup(full_path_curr);
   } else { // search the path for the command.
     struct Node *curr_path_node = PATH.head;
@@ -147,7 +123,6 @@ char *find_cmd(char *name) {
       strcat(full_path_search, name);
       
       if (!access(full_path_search, X_OK)) {
-	if (DEBUG) printf("found given command and it is executable.\n");
 	return strdup(full_path_search);
       }
 
@@ -183,7 +158,6 @@ char **populate_args(struct Token *tok) {
   char **args_out = (char **)malloc((num_args+1)*sizeof(char *));
   args_out[num_args] = NULL;
 
-  if (DEBUG) printf("number of arguments: %d\n", num_args);
   //pop all args and populate each char * with pointer to popped element.
   for (int i = 0; i < num_args; i++) {
     char *arg = pop_front(tok->args);
@@ -219,26 +193,6 @@ int _DEBUG_list_exe_cmds(struct SLList *cmds) {
   return 0;
 }
 
-/* int execute_command(struct ExecutableCmd *exe) { */
-/*   pid_t pid = fork(); */
-/*   int cmd_exit_status; */
-
-/*   if (pid == 0) { // child (for cmd) code. */
-/*     if (execv(exe->full_path, exe->args) < 0) { */
-/*       printf("error: could not execute the command.\n"); */
-/*       // child is useless now, have it kill itself. */
-/*       exit(-1); */
-/*     } */
-/*   } else if (pid < 0) { */
-/*     printf("error: could not fork.\n"); */
-/*     return -1; */
-/*   } else { // parent (for shell) code. */
-    
-/*   } */
-
-/*   return 0; */
-/* } */
-
 int execute_cmds(struct SLList *cmds) {
   int stdout_fd = dup(STDOUT_FILENO);
   int stdin_fd = dup(STDIN_FILENO);
@@ -250,7 +204,7 @@ int execute_cmds(struct SLList *cmds) {
 
   for (int i = 0; i < num_pipes; i++) {
     if (pipe(pfds+2*i) < 0) {
-      printf("error: could not open pipe");
+      fprintf(stderr, "error: could not open pipe, %s\n", strerror(errno));
       return -1;
     }
   }
@@ -275,7 +229,7 @@ int execute_cmds(struct SLList *cmds) {
 	if (current_cmd_node == cmds->head) {
 	  
 	  if (dup2(pfds[1], STDOUT_FILENO) < 0) {
-	    printf("error: could not redirect stdio/pipes.\n");
+	    fprintf(stderr, "error: could not redirect stdout, %s\n", strerror(errno));
 	    exit(-1);
 	  }
 
@@ -287,7 +241,7 @@ int execute_cmds(struct SLList *cmds) {
 
 	  // redirect pipe in to stdin.
 	  if (dup2(pfds[2*cmd_count-2], STDIN_FILENO) < 0) {
-	    printf("error: could not redirect stdio/pipes.\n");
+	    fprintf(stderr, "error: could not redirect stdin, %s\n", strerror(errno));
 	    exit(-1);
 	  }
 
@@ -297,12 +251,12 @@ int execute_cmds(struct SLList *cmds) {
 
 	} else {
 	  if (dup2(pfds[2*cmd_count+1], STDOUT_FILENO) < 0) {
-	    printf("error: could not redirect stdio/pipes.\n");
+	    fprintf(stderr, "error: could not redirect stdout, %s\n", strerror(errno));
 	    exit(-1);
 	  }
 
 	  if (dup2(pfds[2*cmd_count-2], STDIN_FILENO) < 0) {
-	    printf("error: could not redirect stdio/pipes.\n");
+	    fprintf(stderr, "error: could not redirect stdin, %s\n", strerror(errno));
 	    exit(-1);
 	  }
 
@@ -317,7 +271,7 @@ int execute_cmds(struct SLList *cmds) {
 	in_file = open(current_cmd->input_redir_from, O_RDONLY);
 
 	if ( dup2(in_file, STDIN_FILENO) < 0 ) {
-	  printf("error: could not redirect stdin to the output file.\n");
+	  fprintf(stderr, "error: could not redirect stdin to the output file, %s\n", strerror(errno));
 	  exit(-1);
 	}
       }
@@ -330,7 +284,7 @@ int execute_cmds(struct SLList *cmds) {
 			S_IROTH | S_IWOTH);
 
 	if ( dup2(out_file, STDOUT_FILENO) < 0 ) {
-	  printf("error: could not redirect stdout to the output file.\n");
+	  fprintf(stderr, "error: could not redirect stdout to the output file, %s\n", strerror(errno));
 	  exit(-1);
 	}
       }
@@ -343,19 +297,19 @@ int execute_cmds(struct SLList *cmds) {
 			    S_IROTH | S_IWOTH);
 
 	if ( dup2(err_out_file, STDERR_FILENO) < 0 ) {
-	  printf("error: could not redirect stderr to the output file.\n");
+	  fprintf(stderr, "error: could not redirect stderr to the output file, %s\n", strerror(errno));
 	  exit(-1);
 	}
       }
 
       // execute the command.
       if (execv(current_cmd->full_path, current_cmd->args) < 0) {
-	printf("error: could not execute the command.\n");
+	fprintf(stderr, "error: could not execute the command, %s\n", strerror(errno));
 	// child is useless now, have it kill itself.
 	exit(-1);
       }
     } else if (pid < 0) {
-      printf("error: could not fork.\n");
+      fprintf(stderr, "error: could not fork, %s\n", strerror(errno));
       return -1;
     }
 
@@ -368,7 +322,7 @@ int execute_cmds(struct SLList *cmds) {
       for (int i = 0; i < cmds->length; i++) {
 	//if (waitpid(pid, &cmd_exit_status, 0) < 0) {
 	if ( wait(&cmd_exit_status) < 0) {
-	  printf("error: failed to reap all children.\n");
+	  fprintf(stderr, "error: failed to reap all children, %s\n", strerror(errno));
 	}
       }
 
@@ -378,15 +332,15 @@ int execute_cmds(struct SLList *cmds) {
       
       // put the std fds back.
       if (dup2(stdin_fd, STDIN_FILENO) < 0) {
-	printf("error: could not redirect stdout back to fd 0.\n");
+	fprintf(stderr, "error: could not restore stdin, %s\n", strerror(errno));
       }
 
       if (dup2(stdout_fd, STDOUT_FILENO) < 0 ) {
-      	printf("error: could not redirect stdout back to fd 1.\n");
+	fprintf(stderr, "error: could not restore stdout, %s\n", strerror(errno));
       }
 
       if (dup2(stderr_fd, STDERR_FILENO) < 0) {
-	printf("error: could not redirect stdout back to fd 2.\n");
+	fprintf(stderr, "error: could not restore stderr, %s\n", strerror(errno));
       }
       
     }
@@ -481,7 +435,7 @@ int process_input(char *input) {
     char *tmp_token_string = (char *)malloc(token_str_length+1);
 
     if (!tmp_token_string) {
-      printf("error: could not allocate memory in input processing for token.\n");
+      fprintf(stderr, "error: could not allocate memory to process token, %s\n", strerror(errno));
       return -1;
     }
 

@@ -40,9 +40,9 @@ struct ExecutableCmd {
   char *err_output_redir_to;
 };
 
-/*************************
- * FUNCTION DECLARATIONS *
- *************************/
+/*************************************
+ * FUNCTION DECLARATIONS AND INLINES *
+ *************************************/
 static inline void init_globals() {
   MAX_PATH_SIZE = pathconf("/", _PC_PATH_MAX);
 

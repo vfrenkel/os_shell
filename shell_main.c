@@ -19,16 +19,19 @@ int main() {
   char *input = NULL;
   size_t len = 0;
   ssize_t input_status;
-  
+
   init_globals();
 
-  printf("$ ");
+  char curr_dir[MAX_PATH_SIZE];
+  getcwd(curr_dir, MAX_PATH_SIZE);
+  printf("\n%s $ ", curr_dir);
 
  INPUT_LOOP:
   while ( (input_status = getline(&input, &len, stdin)) != -1) {
 
     if (strcmp(input, "exit\n") == 0) {
-      cmd_exit();
+      input_status = 0;
+      break;
     } else if (strncmp(input, "path", 4) == 0) {
       char *mod_ptr = NULL;
       if ( (mod_ptr = strstr(input, "+")) ) {
@@ -47,7 +50,8 @@ int main() {
       }
     }
     
-    printf("$ ");
+    getcwd(curr_dir, MAX_PATH_SIZE);
+    printf("%s $ ", curr_dir);
   }
 
   // check if something went wrong and let the user try to input again.
@@ -56,9 +60,12 @@ int main() {
     exit(-1);
     goto INPUT_LOOP;
   } else {
-    // normal exit condition reached, so let's clean up.
+    // normal exit condition reached, so let's put our toys away.
     if (input) {
       free (input);
+      while (PATH.length) {
+	free(pop_front(&PATH));
+      }
     }
   }
 

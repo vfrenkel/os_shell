@@ -1,10 +1,10 @@
 CC=gcc
 CFLAGS=-g -c -Wall -std=gnu99
 
-all: shell test
+all: myshell test
 
-shell: shell_main.o shell.o sllist.o
-	$(CC) shell_main.o shell.o sllist.o -o shell
+myshell: shell_main.o shell.o sllist.o
+	$(CC) shell_main.o shell.o sllist.o -o myshell
 
 shell_main.o: shell_main.c
 	$(CC) $(CFLAGS) shell_main.c
@@ -28,4 +28,4 @@ tests/CuTest.o: tests/CuTest.c
 	$(CC) $(CFLAGS) tests/CuTest.c -o tests/CuTest.o
 
 clean:
-	rm -rf *.o *~ tests/*.o tests/*~ shell test
+	rm -rf *.o *~ tests/*.o tests/*~ myshell test

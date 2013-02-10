@@ -10,6 +10,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include "sllist.h"
 #include "shell.h"
@@ -20,7 +21,7 @@
  * GLOBAL VARIABLES *
  ********************/
 struct SLList PATH;
-char *CURR_DIR;
+int MAX_PATH_SIZE;
 
 /************************
  * FUNCTION DEFINITIONS *
@@ -126,11 +127,10 @@ int destroy_exe_cmd(struct ExecutableCmd *exe) {
 }
 
 char *find_cmd(char *name) {
-  char full_path_curr[strlen(CURR_DIR)+1+strlen(name)];
+  char full_path_curr[2+strlen(name)];
 
   // check current dir for the command.
-  strcpy(full_path_curr, CURR_DIR);
-  strcat(full_path_curr, "/");
+  strcpy(full_path_curr, "./");
   strcat(full_path_curr, name);
   //if (DEBUG) printf("full_path_curr: %s\n", full_path_curr);
   if (!access(full_path_curr, X_OK)) {
@@ -159,10 +159,9 @@ char *find_cmd(char *name) {
 }
 
 char *find_file(char *name) {
-  char full_path_curr[strlen(CURR_DIR)+1+strlen(name)];
+  char full_path_curr[2+strlen(name)];
 
-  strcpy(full_path_curr, CURR_DIR);
-  strcat(full_path_curr, "/");
+  strcpy(full_path_curr, "./");
   strcat(full_path_curr, name);
   if (!access(full_path_curr, F_OK)) {
     return strdup(full_path_curr);
@@ -172,10 +171,9 @@ char *find_file(char *name) {
 }
 
 char *make_file_path(char *name) {
-  char full_path_curr[strlen(CURR_DIR)+1+strlen(name)];
+  char full_path_curr[2+strlen(name)];
 
-  strcpy(full_path_curr, CURR_DIR);
-  strcat(full_path_curr, "/");
+  strcpy(full_path_curr, "./");
   strcat(full_path_curr, name);
   return strdup(full_path_curr);
 }
@@ -586,7 +584,6 @@ void cmd_path(char modifier, char *path) {
 }
 
 void cmd_cd(char *path) {
-  int max_path_size = pathconf("/", _PC_PATH_MAX);
 
   if (path) {
     path[strlen(path)-1] = '\0';
@@ -594,14 +591,9 @@ void cmd_cd(char *path) {
       path[strlen(path)-1] = '\0';
     }
   }
-  
-  printf("change directory to: %s\n", path);
 
-  char *NEW_CURR_DIR = malloc(strlen(CURR_DIR)+2+strlen(path));
-
-  //TODO: don't maintain your own CURR_DIR variable... use relative paths when 
-  // writing out files and such.
-  strcpy(NEW_CURR_DIR, CURR_DIR);
-  
+  if (chdir(path) < 0) {
+    fprintf(stderr, "error: %s\n", strerror(errno));
+  }  
 
 }

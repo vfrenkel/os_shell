@@ -1,13 +1,14 @@
 #ifndef __SHELL_H_
 #define __SHELL_H_
 
+#include <unistd.h>
+
 /********************
  * GLOBAL VARIABLES *
  ********************/
 //static char *PATH = "/bin:/usr/bin";
 extern struct SLList PATH;
-extern char *CURR_DIR;
-//static char *CURR_DIR = "/home/vfrenkel/ACADEMIC/os/hw1/tests/dir_one";
+extern int MAX_PATH_SIZE;
 
 /************************
  * DATA STRUCTS & ENUMS *
@@ -43,7 +44,7 @@ struct ExecutableCmd {
  * FUNCTION DECLARATIONS *
  *************************/
 static inline void init_globals() {
-  CURR_DIR = "/home/vfrenkel/DATA/ACADEMIC/os/hw1/tests/dir_one";
+  MAX_PATH_SIZE = pathconf("/", _PC_PATH_MAX);
 
   init_list(&PATH);
   add_back(&PATH, strdup("/bin"));

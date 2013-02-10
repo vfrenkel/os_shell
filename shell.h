@@ -1,6 +1,14 @@
 #ifndef __SHELL_H_
 #define __SHELL_H_
 
+/********************
+ * GLOBAL VARIABLES *
+ ********************/
+//static char *PATH = "/bin:/usr/bin";
+extern struct SLList PATH;
+extern char *CURR_DIR;
+//static char *CURR_DIR = "/home/vfrenkel/ACADEMIC/os/hw1/tests/dir_one";
+
 /************************
  * DATA STRUCTS & ENUMS *
  ************************/
@@ -34,6 +42,14 @@ struct ExecutableCmd {
 /*************************
  * FUNCTION DECLARATIONS *
  *************************/
+static inline void init_globals() {
+  CURR_DIR = "/home/vfrenkel/DATA/ACADEMIC/os/hw1/tests/dir_one";
+
+  init_list(&PATH);
+  add_back(&PATH, strdup("/bin"));
+  add_back(&PATH, strdup("/usr/bin"));
+}
+
 /*
  * Initializes a token.
  */
@@ -72,9 +88,19 @@ int evaluate(struct SLList *tokens);
  */
 void cmd_exit();
 
+/*************************
+ * SPECIALIZED FUNCTIONS *
+ *************************/
+/*
+ * Traverse the list and remove nodes
+ * with matching string data.
+ */
+void remove_all_str(struct SLList *list, char *data);
+
 
 void cmd_path(char modifier, char *path);
 
 
+void cmd_cd(char *path);
 
 #endif // __SHELL_H_

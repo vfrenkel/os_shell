@@ -56,9 +56,13 @@ void *pop_front(struct SLList *list) {
     free(list->head);
     list->head = new_head;
     list->length--;
+    
+    if (list->head == NULL) {
+      list->tail_node = NULL;
+    }
+
     return front_data;
   } else {
     return NULL;
   }
 }
-

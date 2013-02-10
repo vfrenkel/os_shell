@@ -19,9 +19,8 @@
 /********************
  * GLOBAL VARIABLES *
  ********************/
-static char *PATH = "/bin:/usr/bin";
-static char *CURR_DIR = "/home/vfrenkel/DATA/ACADEMIC/os/hw1/tests/dir_one";
-//static char *CURR_DIR = "/home/vfrenkel/ACADEMIC/os/hw1/tests/dir_one";
+struct SLList PATH;
+char *CURR_DIR;
 
 /************************
  * FUNCTION DEFINITIONS *
@@ -138,23 +137,22 @@ char *find_cmd(char *name) {
     if (DEBUG) printf("found given command and it is executable.\n");
     return strdup(full_path_curr);
   } else { // search the path for the command.
-    char full_path_search[strlen(PATH)+1+strlen(name)];
-    char *delim = ":";
-    char *path_dup = strdup(PATH);
-    char *path_chunk = strtok(path_dup, delim);
-    while (path_chunk != NULL) {
-      strcpy(full_path_search, path_chunk);
+    struct Node *curr_path_node = PATH.head;
+    while (curr_path_node) {
+      char *search_path = curr_path_node->data;
+      char full_path_search[strlen(search_path)+1+strlen(name)];
+      
+      strcpy(full_path_search, search_path);
       strcat(full_path_search, "/");
       strcat(full_path_search, name);
-      //if (DEBUG) printf("full_path_search: %s\n", full_path_search);
+      
       if (!access(full_path_search, X_OK)) {
 	if (DEBUG) printf("found given command and it is executable.\n");
-	free(path_dup);
 	return strdup(full_path_search);
       }
-      path_chunk = strtok(NULL, delim);
+
+      curr_path_node = curr_path_node->next;
     }
-    free(path_dup);
   }
 
   return NULL;
@@ -524,9 +522,86 @@ void cmd_exit() {
   exit(0);
 }
 
-void cmd_path(char modifier, char *path) {
-  printf("using modifier: %c\n", modifier);
-  printf("using path: %s\n", path);
 
+void remove_all_str(struct SLList *list, char *data) {
+  struct Node *curr = list->head;
+  struct Node *kill_ptr = NULL;
+  struct Node *prev_node = NULL;
+  while (curr) {
+    if (strcmp(curr->data, data) == 0) {
+      free(curr->data);
+      kill_ptr = curr;
+
+      if (prev_node == NULL) {
+	list->head = curr->next;
+      } else if (curr == list->tail_node) {
+	prev_node->next = NULL;
+	list->tail_node = prev_node;
+      } else {
+	prev_node->next = curr->next;
+      }
+
+      list->length--;
+    } else {
+      prev_node = curr;
+    }
+
+    curr = curr->next;
+
+    if (kill_ptr) {
+      free(kill_ptr);
+      kill_ptr = NULL;
+    }
+  }
+}
+
+
+void cmd_path(char modifier, char *path) {
   
+  if (path) {
+    path[strlen(path)-1] = '\0';
+    if (path[strlen(path)-1] == '/') {
+      path[strlen(path)-1] = '\0';
+    }
+  }
+
+  if (modifier == '+') {
+    add_back(&PATH, strdup(path));
+  } else if (modifier == '-') {
+    //remove all matches with path from list.
+    remove_all_str(&PATH, path);
+  } else {
+    struct Node *curr = PATH.head;
+    while (curr) {
+      printf(curr->data);
+
+      if (curr != PATH.tail_node) {
+	printf(":");
+      }
+
+      curr = curr->next;
+    }
+    printf("\n");
+  }
+}
+
+void cmd_cd(char *path) {
+  int max_path_size = pathconf("/", _PC_PATH_MAX);
+
+  if (path) {
+    path[strlen(path)-1] = '\0';
+    if (path[strlen(path)-1] == '/') {
+      path[strlen(path)-1] = '\0';
+    }
+  }
+  
+  printf("change directory to: %s\n", path);
+
+  char *NEW_CURR_DIR = malloc(strlen(CURR_DIR)+2+strlen(path));
+
+  //TODO: don't maintain your own CURR_DIR variable... use relative paths when 
+  // writing out files and such.
+  strcpy(NEW_CURR_DIR, CURR_DIR);
+  
+
 }

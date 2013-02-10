@@ -20,16 +20,16 @@ int main() {
   size_t len = 0;
   ssize_t input_status;
   
+  init_globals();
+
   printf("$ ");
 
  INPUT_LOOP:
   while ( (input_status = getline(&input, &len, stdin)) != -1) {
 
-    // TODO: call func that checks for special command and executes
-    // appropriate subroutine.
-    if (strstr(input, "exit")) {
+    if (strcmp(input, "exit\n") == 0) {
       cmd_exit();
-    } else if (strstr(input, "path")) {
+    } else if (strncmp(input, "path", 4) == 0) {
       char *mod_ptr = NULL;
       if ( (mod_ptr = strstr(input, "+")) ) {
 	cmd_path('+', mod_ptr+2);
@@ -38,6 +38,8 @@ int main() {
       } else {
 	cmd_path('\0', NULL);
       }
+    } else if (strncmp(input, "cd", 2) == 0) {
+      cmd_cd(input+3);
     } else if (input[0] != '\n') {
       if (process_input(input)) {
 	input_status = -1;
@@ -50,7 +52,7 @@ int main() {
 
   // check if something went wrong and let the user try to input again.
   if (input_status == -1) {
-    printf("error getting or processing the input line: %s\n", strerror(errno));
+    fprintf(stderr, "error getting or processing the input line: %s\n", strerror(errno));
     exit(-1);
     goto INPUT_LOOP;
   } else {

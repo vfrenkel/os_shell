@@ -102,7 +102,6 @@ int destroy_token(struct Token *tok) {
   // elements from list, but included here for completeness.
   char *arg;
   while ( (arg = pop_front(tok->args)) ) {
-    printf("token arg being freed: %s\n", arg);
     free(arg);
   }
   free(tok->args);
@@ -115,7 +114,6 @@ int destroy_exe_cmd(struct ExecutableCmd *exe) {
 
   char **arg = exe->args;
   while (*arg) {
-    printf("exe arg being freed: %s\n", *arg);
     free( *arg );
     arg++;
   }
@@ -526,4 +524,9 @@ void cmd_exit() {
   exit(0);
 }
 
+void cmd_path(char modifier, char *path) {
+  printf("using modifier: %c\n", modifier);
+  printf("using path: %s\n", path);
 
+  
+}

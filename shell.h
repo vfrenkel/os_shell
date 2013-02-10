@@ -73,5 +73,8 @@ int evaluate(struct SLList *tokens);
 void cmd_exit();
 
 
+void cmd_path(char modifier, char *path);
+
+
 
 #endif // __SHELL_H_

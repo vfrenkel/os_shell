@@ -27,8 +27,17 @@ int main() {
 
     // TODO: call func that checks for special command and executes
     // appropriate subroutine.
-    if (strcmp(input, "exit\n") == 0) {
+    if (strstr(input, "exit")) {
       cmd_exit();
+    } else if (strstr(input, "path")) {
+      char *mod_ptr = NULL;
+      if ( (mod_ptr = strstr(input, "+")) ) {
+	cmd_path('+', mod_ptr+2);
+      } else if ( (mod_ptr = strstr(input, "-")) ) {
+	cmd_path('-', mod_ptr+2);
+      } else {
+	cmd_path('\0', NULL);
+      }
     } else if (input[0] != '\n') {
       if (process_input(input)) {
 	input_status = -1;

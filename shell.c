@@ -544,7 +544,7 @@ void cmd_path(char modifier, char *path) {
   } else {
     struct Node *curr = PATH.head;
     while (curr) {
-      printf(curr->data);
+      printf("%s", (char *)curr->data);
 
       if (curr != PATH.tail_node) {
 	printf(":");

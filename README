@@ -1,0 +1,123 @@
+Victor Frenkel
+vgf2103
+Operating Systems HW 1
+README
+
+
+FILES/DESCRIPTIONS:
+
+hw1
+.
+├── Makefile <<-- controls compilation
+├── README <<-- this document, describing the project.
+├── shell.c <<-- most of the shell's core functionality is implemented here.
+├── shell.h <<-- a header interface to some of the functions in shell.c (exposes functions to shell_main.c but also used for testing)
+├── shell_main.c <<-- the main shell prompt loop, also containing logic to catch the built-in commands.
+├── sllist.c <<-- singly linked list implementation.
+├── sllist.h <<-- singly linked list implementation header.
+└── vgf2103_written_part.txt <<-- the written part of this homework.
+
+0 directories, 8 files
+
+COMPILE INSTRUCTIONS:
+
+type 'make'. will compile and link the myshell executable.
+
+
+TEST RUN:
+
+This is a demo of my shell's functionality. Includes a valgrind memory report at the end of the session. Tested on machine Warsaw in the clic lab.
+
+
+vgf2103@warsaw /home/vgf2103/ACADEMIC/os/hw1 $ ./myshell
+
+/home/vgf2103/ACADEMIC/os/hw1 $ ls
+Makefile  myshell  shell.c  shell.h  shell_main.c  shell_main.o  shell.o  sllist.c  sllist.h  sllist.o  vgf2103_written_part.txt
+/home/vgf2103/ACADEMIC/os/hw1 $ mkdir tests               
+/home/vgf2103/ACADEMIC/os/hw1 $ ls
+Makefile  myshell  shell.c  shell.h  shell_main.c  shell_main.o  shell.o  sllist.c  sllist.h  sllist.o  tests  vgf2103_written_part.txt
+/home/vgf2103/ACADEMIC/os/hw1 $ cd tests
+/home/vgf2103/ACADEMIC/os/hw1/tests $ ls
+/home/vgf2103/ACADEMIC/os/hw1/tests $ pwd
+/home/vgf2103/ACADEMIC/os/hw1/tests
+/home/vgf2103/ACADEMIC/os/hw1/tests $ cp /usr/bin/echo myecho
+cp: cannot stat `/usr/bin/echo': No such file or directory
+/home/vgf2103/ACADEMIC/os/hw1/tests $ cp /bin/echo myecho
+/home/vgf2103/ACADEMIC/os/hw1/tests $ ls
+myecho
+/home/vgf2103/ACADEMIC/os/hw1/tests $ myecho hi how are you?
+hi how are you?
+/home/vgf2103/ACADEMIC/os/hw1/tests $ myecho hello | cat | cat
+hello
+/home/vgf2103/ACADEMIC/os/hw1/tests $ myecho this is another pipeline test | wc
+      1       5      30
+/home/vgf2103/ACADEMIC/os/hw1/tests $ echo i loves kitties. > kitties.txt
+/home/vgf2103/ACADEMIC/os/hw1/tests $ cat kitties.txt
+i loves kitties.
+/home/vgf2103/ACADEMIC/os/hw1/tests $ ls
+kitties.txt  myecho
+/home/vgf2103/ACADEMIC/os/hw1/tests $ path
+/bin:/usr/bin
+/home/vgf2103/ACADEMIC/os/hw1/tests $ path + /home/vgf2103
+/home/vgf2103/ACADEMIC/os/hw1/tests $ path
+/bin:/usr/bin:/home/vgf2103
+/home/vgf2103/ACADEMIC/os/hw1/tests $ path + /home/vgf2103/
+/home/vgf2103/ACADEMIC/os/hw1/tests $ path
+/bin:/usr/bin:/home/vgf2103:/home/vgf2103
+/home/vgf2103/ACADEMIC/os/hw1/tests $ path - /bin     
+/home/vgf2103/ACADEMIC/os/hw1/tests $ path
+/usr/bin:/home/vgf2103:/home/vgf2103
+/home/vgf2103/ACADEMIC/os/hw1/tests $ path - /home/vgf2103
+/home/vgf2103/ACADEMIC/os/hw1/tests $ path
+/usr/bin
+/home/vgf2103/ACADEMIC/os/hw1/tests $ path + /bin
+/home/vgf2103/ACADEMIC/os/hw1/tests $ path
+/usr/bin:/bin
+/home/vgf2103/ACADEMIC/os/hw1/tests $ path - /bin
+/home/vgf2103/ACADEMIC/os/hw1/tests $ path
+/usr/bin
+/home/vgf2103/ACADEMIC/os/hw1/tests $ echo can not find this now
+error: not a valid command.
+/home/vgf2103/ACADEMIC/os/hw1/tests $ path + /bin
+/home/vgf2103/ACADEMIC/os/hw1/tests $ echo i can find it now
+i can find it now
+/home/vgf2103/ACADEMIC/os/hw1/tests $ path
+/usr/bin:/bin
+/home/vgf2103/ACADEMIC/os/hw1/tests $ cat < kitties.txt
+i loves kitties.
+/home/vgf2103/ACADEMIC/os/hw1/tests $ cat < kitties.txt > kitty_dup.txt 2> errorz.txt
+/home/vgf2103/ACADEMIC/os/hw1/tests $ ls
+errorz.txt  kitties.txt  kitty_dup.txt  myecho
+/home/vgf2103/ACADEMIC/os/hw1/tests $ cat errorz.txt
+/home/vgf2103/ACADEMIC/os/hw1/tests $ cat kitty_dup.txt
+i loves kitties.
+/home/vgf2103/ACADEMIC/os/hw1/tests $ cat kitties.txt
+i loves kitties.
+/home/vgf2103/ACADEMIC/os/hw1/tests $ cat notarealfile 2> errorz.txt
+/home/vgf2103/ACADEMIC/os/hw1/tests $ cat errorz.txt
+cat: notarealfile: No such file or directory
+/home/vgf2103/ACADEMIC/os/hw1/tests $ echo it is time to go feed the kitties > kitties.txt | wc | cat
+error: syntax error in output redirection.
+/home/vgf2103/ACADEMIC/os/hw1/tests $ echo < kitties.txt | wc | cat          
+      1       0       1
+/home/vgf2103/ACADEMIC/os/hw1/tests $ echo < kitties.txt
+
+/home/vgf2103/ACADEMIC/os/hw1/tests $ cat < kitties.txt | wc | cat
+      1       3      17
+/home/vgf2103/ACADEMIC/os/hw1/tests $ cat < kitties.txt | wc
+      1       3      17
+/home/vgf2103/ACADEMIC/os/hw1/tests $ exit
+==10498== 
+==10498== HEAP SUMMARY:
+==10498==     in use at exit: 0 bytes in 0 blocks
+==10498==   total heap usage: 675 allocs, 675 frees, 10,498 bytes allocated
+==10498== 
+==10498== All heap blocks were freed -- no leaks are possible
+==10498== 
+==10498== For counts of detected and suppressed errors, rerun with: -v
+==10498== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 2 from 2)
+
+
+ASSUMPTIONS:
+
+Used system defined limits, queried them. Did not have to make assumptions....  
